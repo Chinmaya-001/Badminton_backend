@@ -3,16 +3,13 @@ const express = require("express");
 const {
     getMyDashboard,
     getPlayerById,
+    getPlayerRank,
     getMyProfile,
     getMyMatches,
     getMyMatchDetails,
     getMyUpcomingMatches,
     getMyRatingHistory
 } = require("../controllers/playerController");
-
-const {
-    getPlayerRanking
-} = require("../controllers/rankingController");
 
 const {
     authenticate, 
@@ -51,6 +48,6 @@ router.get("/me/upcoming-matches", getMyUpcomingMatches);
 router.get("/me/matches/:matchId", getMyMatchDetails);
 router.get("/me/rating-history", getMyRatingHistory);
 router.get("/:id", getPlayerById);
-router.get("/:id/rank", getPlayerRanking);
+router.get("/:id/rank", getPlayerRank);
 
 module.exports = router;

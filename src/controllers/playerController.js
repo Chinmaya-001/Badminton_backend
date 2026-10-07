@@ -988,9 +988,62 @@ const getMyRatingHistory = async (req, res) => {
     }
 };
 
+const getPlayerRank = async (req, res) => {
+    try {
+        const id = req.params.id || req.params.playerId;
+
+        if (!id || isNaN(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid player ID"
+            });
+        }
+
+        const rankResult = await pool.query(
+            `WITH ranked_players AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            rating DESC,
+                            wins DESC,
+                            losses ASC,
+                            created_at ASC,
+                            id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+            )
+            SELECT rank FROM ranked_players WHERE id = $1`,
+            [id]
+        );
+
+        if (rankResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Player not found or not approved"
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            playerId: Number(id),
+            rank: Number(rankResult.rows[0].rank)
+        });
+
+    } catch (error) {
+        console.error("Get player rank error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to get player rank"
+        });
+    }
+};
+
 module.exports = {
     getMyDashboard,
     getPlayerById,
+    getPlayerRank,
     getMyProfile,
     getMyMatches,
     getMyMatchDetails,
