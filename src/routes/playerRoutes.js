@@ -11,6 +11,10 @@ const {
 } = require("../controllers/playerController");
 
 const {
+    getPlayerRanking
+} = require("../controllers/rankingController");
+
+const {
     authenticate, 
     requirePlayer   
 } = require("../middleware/authMiddleware");
@@ -47,5 +51,6 @@ router.get("/me/upcoming-matches", getMyUpcomingMatches);
 router.get("/me/matches/:matchId", getMyMatchDetails);
 router.get("/me/rating-history", getMyRatingHistory);
 router.get("/:id", getPlayerById);
+router.get("/:id/rank", getPlayerRanking);
 
 module.exports = router;

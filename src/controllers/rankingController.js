@@ -64,7 +64,14 @@ const getLeaderboard = async (req, res) => {
 
 const getPlayerRanking = async (req, res) => {
     try {
-        const { playerId } = req.params;
+        const playerId = req.params.playerId || req.params.id;
+
+        if (!playerId || isNaN(playerId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid player ID is required"
+            });
+        }
 
         const result = await pool.query(
             `WITH ranked_players AS (
@@ -111,6 +118,7 @@ const getPlayerRanking = async (req, res) => {
 
         res.status(200).json({
             success: true,
+            rank: Number(player.rank),
             player: {
                 id: player.id,
                 name: player.name,

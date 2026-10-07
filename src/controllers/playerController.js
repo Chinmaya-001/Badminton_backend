@@ -354,6 +354,27 @@ const getPlayerById = async (req, res) => {
         const playerRow = result.rows[0];
         const photoUrl = await getPhotoSignedUrl(playerRow.photo_url);
 
+        const rankResult = await pool.query(
+            `WITH ranked_players AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            rating DESC,
+                            wins DESC,
+                            losses ASC,
+                            created_at ASC,
+                            id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+            )
+            SELECT rank FROM ranked_players WHERE id = $1`,
+            [id]
+        );
+
+        const rank = rankResult.rows.length > 0 ? Number(rankResult.rows[0].rank) : null;
+
         res.status(200).json({
             success: true,
             player: {
@@ -363,6 +384,7 @@ const getPlayerById = async (req, res) => {
                 phone: playerRow.phone,
                 gender: playerRow.gender || null,
                 photoUrl,
+                rank,
                 rating: Number(playerRow.rating),
                 wins: Number(playerRow.wins),
                 losses: Number(playerRow.losses),
