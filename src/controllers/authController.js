@@ -85,7 +85,8 @@ const adminLogin = async (req, res) => {
 
         res.status(500).json({
             success: false,
-            message: "Login failed"
+            message: "Login failed",
+            error: error.message
         });
     }
 };
