@@ -1,9 +1,9 @@
 
 const { Pool } = require("pg");
 
-const isLocalhost = !process.env.DB_HOST || process.env.DB_HOST === "localhost" || process.env.DB_HOST === "127.0.0.1";
-const isProduction = process.env.NODE_ENV === "production";
-const useSSL = process.env.DB_SSL === "true" || (!isLocalhost && process.env.DB_SSL !== "false") || isProduction;
+const isRemoteUrl = process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost") && !process.env.DATABASE_URL.includes("127.0.0.1");
+const isRemoteHost = process.env.DB_HOST && process.env.DB_HOST !== "localhost" && process.env.DB_HOST !== "127.0.0.1";
+const useSSL = process.env.DB_SSL === "true" || isRemoteUrl || isRemoteHost || process.env.NODE_ENV === "production";
 
 const poolConfig = process.env.DATABASE_URL
     ? {
