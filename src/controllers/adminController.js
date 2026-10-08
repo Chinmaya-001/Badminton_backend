@@ -92,7 +92,16 @@ const getAdminDashboard = async (req, res) => {
         // --------------------------------------------
 
         const upcomingResult = await pool.query(
-            `SELECT
+            `WITH ranked_players AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY rating DESC, wins DESC, losses ASC, created_at ASC, id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+            )
+            SELECT
                 m.id,
                 m.court,
                 m.scheduled_at,
@@ -100,9 +109,11 @@ const getAdminDashboard = async (req, res) => {
 
                 p1.id AS player1_id,
                 p1.name AS player1_name,
+                rp1.rank AS player1_rank,
 
                 p2.id AS player2_id,
                 p2.name AS player2_name,
+                rp2.rank AS player2_rank,
 
                 r.id AS referee_id,
                 r.name AS referee_name
@@ -114,6 +125,12 @@ const getAdminDashboard = async (req, res) => {
 
              JOIN players p2
                 ON m.player2_id = p2.id
+
+             LEFT JOIN ranked_players rp1
+                ON p1.id = rp1.id
+
+             LEFT JOIN ranked_players rp2
+                ON p2.id = rp2.id
 
              LEFT JOIN referees r
                 ON m.referee_id = r.id
@@ -140,12 +157,14 @@ const getAdminDashboard = async (req, res) => {
 
                 player1: {
                     id: match.player1_id,
-                    name: match.player1_name
+                    name: match.player1_name,
+                    rank: match.player1_rank === null ? null : Number(match.player1_rank)
                 },
 
                 player2: {
                     id: match.player2_id,
-                    name: match.player2_name
+                    name: match.player2_name,
+                    rank: match.player2_rank === null ? null : Number(match.player2_rank)
                 },
 
                 referee: match.referee_id
@@ -161,7 +180,16 @@ const getAdminDashboard = async (req, res) => {
         // --------------------------------------------
 
         const liveResult = await pool.query(
-            `SELECT
+            `WITH ranked_players AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY rating DESC, wins DESC, losses ASC, created_at ASC, id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+            )
+            SELECT
                 m.id,
                 m.court,
                 m.started_at,
@@ -171,9 +199,11 @@ const getAdminDashboard = async (req, res) => {
 
                 p1.id AS player1_id,
                 p1.name AS player1_name,
+                rp1.rank AS player1_rank,
 
                 p2.id AS player2_id,
                 p2.name AS player2_name,
+                rp2.rank AS player2_rank,
 
                 r.id AS referee_id,
                 r.name AS referee_name
@@ -185,6 +215,12 @@ const getAdminDashboard = async (req, res) => {
 
              JOIN players p2
                 ON m.player2_id = p2.id
+
+             LEFT JOIN ranked_players rp1
+                ON p1.id = rp1.id
+
+             LEFT JOIN ranked_players rp2
+                ON p2.id = rp2.id
 
              LEFT JOIN referees r
                 ON m.referee_id = r.id
@@ -220,12 +256,14 @@ const getAdminDashboard = async (req, res) => {
 
                 player1: {
                     id: match.player1_id,
-                    name: match.player1_name
+                    name: match.player1_name,
+                    rank: match.player1_rank === null ? null : Number(match.player1_rank)
                 },
 
                 player2: {
                     id: match.player2_id,
-                    name: match.player2_name
+                    name: match.player2_name,
+                    rank: match.player2_rank === null ? null : Number(match.player2_rank)
                 },
 
                 referee: match.referee_id
