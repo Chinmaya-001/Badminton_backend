@@ -1048,6 +1048,71 @@ const getAllPlayers = async (req, res) => {
     }
 };
 
+const getPlayerByName = async (req, res) => {
+    try {
+        const name = typeof req.query.name === "string"
+            ? req.query.name.trim()
+            : "";
+
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                message: "name query parameter is required"
+            });
+        }
+
+        const result = await pool.query(
+            `SELECT
+                id,
+                name,
+                email,
+                phone,
+                rating,
+                wins,
+                losses,
+                gender,
+                photo_url,
+                approval_status,
+                is_active,
+                created_at
+             FROM players
+             WHERE name ILIKE $1
+             ORDER BY name ASC, created_at DESC`,
+            [`%${name}%`]
+        );
+
+        const players = await Promise.all(
+            result.rows.map(async player => ({
+                id: player.id,
+                name: player.name,
+                email: player.email,
+                phone: player.phone,
+                gender: player.gender || null,
+                photoUrl: await getPhotoSignedUrl(player.photo_url),
+                rating: Number(player.rating),
+                wins: Number(player.wins),
+                losses: Number(player.losses),
+                approvalStatus: player.approval_status,
+                isActive: player.is_active,
+                createdAt: player.created_at
+            }))
+        );
+
+        return res.status(200).json({
+            success: true,
+            count: players.length,
+            players
+        });
+    } catch (error) {
+        console.error("Get player by name admin error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to get player by name"
+        });
+    }
+};
+
 const createReferee = async (req, res) => {
     try {
         const {
@@ -1134,6 +1199,7 @@ module.exports = {
     updateMatch,
     cancelMatch,
     getAllPlayers,
+    getPlayerByName,
     getPendingPlayers,
     approvePlayer,
     rejectPlayer,
