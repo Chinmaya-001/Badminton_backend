@@ -1062,40 +1062,62 @@ const getPlayerByName = async (req, res) => {
         }
 
         const result = await pool.query(
-            `SELECT
-                id,
-                name,
-                email,
-                phone,
-                rating,
-                wins,
-                losses,
-                gender,
-                photo_url,
-                approval_status,
-                is_active,
-                created_at
-             FROM players
-             WHERE name ILIKE $1
-             ORDER BY name ASC, created_at DESC`,
+            `WITH ranked_players AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            rating DESC,
+                            wins DESC,
+                            losses ASC,
+                            created_at ASC,
+                            id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+            )
+            SELECT
+                p.id,
+                p.name,
+                p.email,
+                p.phone,
+                p.rating,
+                p.wins,
+                p.losses,
+                p.gender,
+                p.photo_url,
+                p.approval_status,
+                p.is_active,
+                p.created_at,
+                rp.rank
+            FROM players p
+            LEFT JOIN ranked_players rp ON rp.id = p.id
+            WHERE p.name ILIKE $1
+            ORDER BY p.name ASC, p.created_at DESC`,
             [`%${name}%`]
         );
 
         const players = await Promise.all(
-            result.rows.map(async player => ({
-                id: player.id,
-                name: player.name,
-                email: player.email,
-                phone: player.phone,
-                gender: player.gender || null,
-                photoUrl: await getPhotoSignedUrl(player.photo_url),
-                rating: Number(player.rating),
-                wins: Number(player.wins),
-                losses: Number(player.losses),
-                approvalStatus: player.approval_status,
-                isActive: player.is_active,
-                createdAt: player.created_at
-            }))
+            result.rows.map(async player => {
+                const wins = Number(player.wins);
+                const losses = Number(player.losses);
+                const matchesPlayed = wins + losses;
+
+                return {
+                    rank: player.rank === null ? null : Number(player.rank),
+                    id: player.id,
+                    name: player.name,
+                    gender: player.gender || null,
+                    photoUrl: await getPhotoSignedUrl(player.photo_url),
+                    rating: Number(player.rating),
+                    wins,
+                    losses,
+                    matchesPlayed,
+                    winPercentage: matchesPlayed === 0
+                        ? 0
+                        : Number(((wins / matchesPlayed) * 100).toFixed(2))
+                };
+            })
         );
 
         return res.status(200).json({
