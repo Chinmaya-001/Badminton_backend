@@ -84,7 +84,8 @@ const updateScore = async (req, res) => {
                 current_set,
                 current_player1_score,
                 current_player2_score,
-                status
+                status,
+                number_of_sets
              FROM matches
              WHERE id = $1
              FOR UPDATE`,
@@ -101,6 +102,8 @@ const updateScore = async (req, res) => {
         }
 
         const match = matchResult.rows[0];
+        const numberOfSets = Number(match.number_of_sets);
+        const setsToWin = Math.ceil(numberOfSets / 2);
 
         // Check referee
         if (Number(match.referee_id) !== Number(refereeId)) {
@@ -247,7 +250,7 @@ const updateScore = async (req, res) => {
             match.current_set
         );
 
-        if (currentSet > 3) {
+        if (currentSet > numberOfSets) {
             await client.query("ROLLBACK");
 
             return res.status(400).json({
@@ -302,17 +305,17 @@ const updateScore = async (req, res) => {
         // ---------------------------------------
 
         if (
-            player1Sets === 2 ||
-            player2Sets === 2
+            player1Sets === setsToWin ||
+            player2Sets === setsToWin
         ) {
 
             const winnerId =
-                player1Sets === 2
+                player1Sets === setsToWin
                     ? match.player1_id
                     : match.player2_id;
 
             const loserId =
-                player1Sets === 2
+                player1Sets === setsToWin
                     ? match.player2_id
                     : match.player1_id;
 

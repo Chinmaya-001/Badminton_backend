@@ -422,13 +422,24 @@ const createMatch = async (req, res) => {
             player2Id,
             refereeId,
             court,
-            scheduledAt
+            scheduledAt,
+            numberOfSets
         } = req.body;
 
         if (!player1Id || !player2Id || !scheduledAt) {
             return res.status(400).json({
                 success: false,
                 message: "player1Id, player2Id and scheduledAt are required"
+            });
+        }
+
+        // Validate numberOfSets (defaults to 3)
+        const setsToPlay = numberOfSets ? Number(numberOfSets) : 3;
+
+        if (![1, 3, 5].includes(setsToPlay)) {
+            return res.status(400).json({
+                success: false,
+                message: "numberOfSets must be 1, 3, or 5"
             });
         }
 
@@ -497,9 +508,10 @@ const createMatch = async (req, res) => {
                 court,
                 scheduled_at,
                 status,
-                created_by_admin_id
+                created_by_admin_id,
+                number_of_sets
             )
-            VALUES ($1, $2, $3, $4, $5, 'SCHEDULED', $6)
+            VALUES ($1, $2, $3, $4, $5, 'SCHEDULED', $6, $7)
             RETURNING
                 id,
                 player1_id,
@@ -509,6 +521,7 @@ const createMatch = async (req, res) => {
                 scheduled_at,
                 status,
                 created_by_admin_id,
+                number_of_sets,
                 created_at`,
             [
                 player1Id,
@@ -516,7 +529,8 @@ const createMatch = async (req, res) => {
                 refereeId || null,
                 court || null,
                 scheduledAt,
-                adminId
+                adminId,
+                setsToPlay
             ]
         );
 

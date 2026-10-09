@@ -16,13 +16,24 @@ const createMatch = async (req, res) => {
             player2Id,
             refereeId,
             court,
-            scheduledAt
+            scheduledAt,
+            numberOfSets
         } = req.body;
 
         if (!player1Id || !player2Id || !scheduledAt) {
             return res.status(400).json({
                 success: false,
                 message: "player1Id, player2Id and scheduledAt are required"
+            });
+        }
+
+        // Validate numberOfSets (defaults to 3)
+        const setsToPlay = numberOfSets ? Number(numberOfSets) : 3;
+
+        if (![1, 3, 5].includes(setsToPlay)) {
+            return res.status(400).json({
+                success: false,
+                message: "numberOfSets must be 1, 3, or 5"
             });
         }
 
@@ -74,9 +85,10 @@ const createMatch = async (req, res) => {
                 referee_id,
                 court,
                 scheduled_at,
-                status
+                status,
+                number_of_sets
             )
-            VALUES ($1, $2, $3, $4, $5, 'SCHEDULED')
+            VALUES ($1, $2, $3, $4, $5, 'SCHEDULED', $6)
             RETURNING
                 id,
                 player1_id,
@@ -85,13 +97,15 @@ const createMatch = async (req, res) => {
                 court,
                 scheduled_at,
                 status,
+                number_of_sets,
                 created_at`,
             [
                 player1Id,
                 player2Id,
                 refereeId || null,
                 court || null,
-                scheduledAt
+                scheduledAt,
+                setsToPlay
             ]
         );
 
@@ -238,13 +252,6 @@ const submitMatchResult = async (req, res) => {
             });
         }
 
-        if (sets.length < 2 || sets.length > 3) {
-            return res.status(400).json({
-                success: false,
-                message: "A badminton match must contain 2 or 3 sets"
-            });
-        }
-
         await client.query("BEGIN");
 
         // Get match and lock it
@@ -253,7 +260,8 @@ const submitMatchResult = async (req, res) => {
                 id,
                 player1_id,
                 player2_id,
-                status
+                status,
+                number_of_sets
              FROM matches
              WHERE id = $1
              FOR UPDATE`,
@@ -270,6 +278,30 @@ const submitMatchResult = async (req, res) => {
         }
 
         const match = matchResult.rows[0];
+        const numberOfSets = Number(match.number_of_sets);
+        const setsToWin = Math.ceil(numberOfSets / 2);
+
+        // Validate sets count based on match format
+        if (numberOfSets === 1) {
+            if (sets.length !== 1) {
+                await client.query("ROLLBACK");
+
+                return res.status(400).json({
+                    success: false,
+                    message: "This is a single-set match. Provide exactly 1 set."
+                });
+            }
+        } else {
+            // For best-of-3 or best-of-5
+            if (sets.length < setsToWin || sets.length > numberOfSets) {
+                await client.query("ROLLBACK");
+
+                return res.status(400).json({
+                    success: false,
+                    message: `A best-of-${numberOfSets} match must contain between ${setsToWin} and ${numberOfSets} sets`
+                });
+            }
+        }
 
         // Match must not be completed
         if (match.status === "COMPLETED") {
@@ -323,52 +355,50 @@ const submitMatchResult = async (req, res) => {
             }
         }
 
-        // Match must be won 2-0 or 2-1
-        if (player1SetWins !== 2 && player2SetWins !== 2) {
-            await client.query("ROLLBACK");
-
-            return res.status(400).json({
-                success: false,
-                message: "A player must win exactly 2 sets"
-            });
-        }
-
-        // Validate number of sets
-        if (
-            (player1SetWins === 2 && player2SetWins === 0) ||
-            (player2SetWins === 2 && player1SetWins === 0)
-        ) {
-            if (sets.length !== 2) {
+        // Determine winner based on match format
+        if (numberOfSets === 1) {
+            // Single set: winner is whoever won the set
+            if (player1SetWins !== 1 && player2SetWins !== 1) {
                 await client.query("ROLLBACK");
 
                 return res.status(400).json({
                     success: false,
-                    message: "A 2-0 match must contain exactly 2 sets"
+                    message: "Invalid set result"
                 });
             }
-        }
-
-        if (
-            (player1SetWins === 2 && player2SetWins === 1) ||
-            (player2SetWins === 2 && player1SetWins === 1)
-        ) {
-            if (sets.length !== 3) {
+        } else {
+            // Best-of-N: one player must reach setsToWin
+            if (player1SetWins !== setsToWin && player2SetWins !== setsToWin) {
                 await client.query("ROLLBACK");
 
                 return res.status(400).json({
                     success: false,
-                    message: "A 2-1 match must contain exactly 3 sets"
+                    message: `A player must win exactly ${setsToWin} sets in a best-of-${numberOfSets} match`
+                });
+            }
+
+            // Validate that no extra sets were played after someone won
+            const winnerSetWins = Math.max(player1SetWins, player2SetWins);
+            const loserSetWins = Math.min(player1SetWins, player2SetWins);
+            const expectedSets = winnerSetWins + loserSetWins;
+
+            if (sets.length !== expectedSets) {
+                await client.query("ROLLBACK");
+
+                return res.status(400).json({
+                    success: false,
+                    message: `A ${winnerSetWins}-${loserSetWins} match must contain exactly ${expectedSets} sets`
                 });
             }
         }
 
         const winnerId =
-            player1SetWins === 2
+            player1SetWins >= setsToWin
                 ? match.player1_id
                 : match.player2_id;
 
         const loserId =
-            player1SetWins === 2
+            player1SetWins >= setsToWin
                 ? match.player2_id
                 : match.player1_id;
 
