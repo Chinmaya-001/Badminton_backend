@@ -947,7 +947,6 @@ const rejectPlayer = async (req, res) => {
             `UPDATE players
              SET approval_status = 'REJECTED'
              WHERE id = $1
-             AND approval_status = 'PENDING'
              RETURNING
                 id,
                 name,
