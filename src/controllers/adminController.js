@@ -997,6 +997,133 @@ const rejectPlayer = async (req, res) => {
     }
 };
 
+const getRejectedPlayers = async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT
+                id,
+                name,
+                gender,
+                photo_url,
+                rating,
+                wins,
+                losses,
+                (wins + losses) AS matches_played,
+                CASE
+                    WHEN (wins + losses) = 0 THEN 0
+                    ELSE ROUND((wins::numeric / (wins + losses)) * 100, 2)
+                END AS win_percentage
+             FROM players
+             WHERE approval_status = 'REJECTED'
+             ORDER BY created_at DESC`
+        );
+
+        const players = await Promise.all(
+            result.rows.map(async player => ({
+                rank: null,
+                id: String(player.id),
+                name: player.name,
+                gender: player.gender || null,
+                photoUrl: await getPhotoSignedUrl(player.photo_url),
+                rating: Number(player.rating),
+                wins: Number(player.wins),
+                losses: Number(player.losses),
+                matchesPlayed: Number(player.matches_played),
+                winPercentage: Number(player.win_percentage)
+            }))
+        );
+
+        res.status(200).json({
+            success: true,
+            count: players.length,
+            players
+        });
+    } catch (error) {
+        console.error("Get rejected players error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to get rejected players"
+        });
+    }
+};
+
+const approveRejectedPlayer = async (req, res) => {
+    try {
+        const { playerId } = req.params;
+
+        const result = await pool.query(
+            `UPDATE players
+             SET approval_status = 'APPROVED'
+             WHERE id = $1
+             AND approval_status = 'REJECTED'
+             RETURNING
+                id,
+                name,
+                gender,
+                photo_url,
+                rating,
+                wins,
+                losses`,
+            [playerId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Rejected player not found"
+            });
+        }
+
+        const player = result.rows[0];
+        const matchesPlayed = Number(player.wins) + Number(player.losses);
+        const winPercentage = matchesPlayed === 0
+            ? 0
+            : Number(((Number(player.wins) / matchesPlayed) * 100).toFixed(2));
+
+        const rankResult = await pool.query(
+            `WITH ranked_players AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            rating DESC,
+                            wins DESC,
+                            losses ASC,
+                            created_at ASC,
+                            id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+            )
+            SELECT rank FROM ranked_players WHERE id = $1`,
+            [player.id]
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Rejected player approved successfully",
+            player: {
+                rank: Number(rankResult.rows[0].rank),
+                id: String(player.id),
+                name: player.name,
+                gender: player.gender || null,
+                photoUrl: await getPhotoSignedUrl(player.photo_url),
+                rating: Number(player.rating),
+                wins: Number(player.wins),
+                losses: Number(player.losses),
+                matchesPlayed,
+                winPercentage
+            }
+        });
+    } catch (error) {
+        console.error("Approve rejected player error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to approve rejected player"
+        });
+    }
+};
+
 const getAllPlayers = async (req, res) => {
     try {
         const { status } = req.query;
@@ -1239,6 +1366,8 @@ module.exports = {
     getPendingPlayers,
     approvePlayer,
     rejectPlayer,
+    getRejectedPlayers,
+    approveRejectedPlayer,
     getAllReferees,
     createReferee
 };

@@ -13,6 +13,8 @@ const {
     getPendingPlayers,
     approvePlayer,
     rejectPlayer,
+    getRejectedPlayers,
+    approveRejectedPlayer,
     createReferee
 } = require("../controllers/adminController");
 
@@ -69,6 +71,13 @@ router.patch(
 router.patch(
     "/players/:playerId/reject",
     rejectPlayer
+);
+
+router.get("/players/rejected", getRejectedPlayers);
+
+router.patch(
+    "/players/:playerId/approve-rejected",
+    approveRejectedPlayer
 );
 
 router.get("/referees",getAllReferees);
