@@ -27,6 +27,7 @@ const {
     authenticate,
     requireAdmin
 } = require("../middleware/authMiddleware");
+const { getPlayerById } = require("../controllers/playerController");
 
 const router = express.Router();
 
@@ -67,6 +68,8 @@ router.patch(
     "/players/:playerId/approve",
     approvePlayer
 );
+
+router.get("/player/:id", getPlayerById);
 
 router.patch(
     "/players/:playerId/reject",
