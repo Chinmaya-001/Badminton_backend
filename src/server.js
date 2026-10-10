@@ -6,6 +6,7 @@ const refereeRoutes = require("./routes/refereeRouter");
 const adminRoutes = require("./routes/adminRoutes");
 const authRoutes = require("./routes/authRoutes");
 const rankingRoutes = require("./routes/rankingRoutes");
+const doublesMatchRoutes = require("./routes/doublesMatchRoutes");
 
 const express = require("express");
 const cors = require("cors");
@@ -56,6 +57,7 @@ app.get("/health/db", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/players", playerRoutes);
 app.use("/api/matches", matchRoutes);
+app.use("/api/doubles-matches", doublesMatchRoutes);
 app.use("/api/referee", refereeRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/rankings", rankingRoutes);
