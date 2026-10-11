@@ -938,6 +938,79 @@ const approvePlayer = async (req, res) => {
     }
 };
 
+const setPlayerPending = async (req, res) => {
+    try {
+        const { playerId } = req.params;
+
+        const result = await pool.query(
+            `WITH approved_ranks AS MATERIALIZED (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            rating DESC,
+                            wins DESC,
+                            losses ASC,
+                            created_at ASC,
+                            id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+             ),
+             updated_player AS (
+                UPDATE players
+                SET approval_status = 'PENDING'
+                WHERE id = $1
+                AND approval_status = 'APPROVED'
+                RETURNING
+                    id,
+                    name,
+                    email,
+                    phone,
+                    gender,
+                    photo_url,
+                    approval_status
+             )
+             SELECT
+                updated_player.*,
+                approved_ranks.rank
+             FROM updated_player
+             JOIN approved_ranks ON approved_ranks.id = updated_player.id`,
+            [playerId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Approved player not found"
+            });
+        }
+
+        const player = result.rows[0];
+
+        res.status(200).json({
+            success: true,
+            message: "Player status changed to pending",
+            player: {
+                rank: Number(player.rank),
+                id: Number(player.id),
+                name: player.name,
+                email: player.email,
+                phone: player.phone,
+                gender: player.gender || "",
+                photoUrl: await getPhotoSignedUrl(player.photo_url) || "",
+                approvalStatus: player.approval_status
+            }
+        });
+    } catch (error) {
+        console.error("Set player pending error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to change player status to pending"
+        });
+    }
+};
+
 const rejectPlayer = async (req, res) => {
     try {
 
@@ -1358,6 +1431,7 @@ module.exports = {
     getPlayerByName,
     getPendingPlayers,
     approvePlayer,
+    setPlayerPending,
     rejectPlayer,
     getRejectedPlayers,
     approveRejectedPlayer,

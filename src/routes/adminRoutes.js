@@ -12,6 +12,7 @@ const {
     getPlayerByName,
     getPendingPlayers,
     approvePlayer,
+    setPlayerPending,
     rejectPlayer,
     getRejectedPlayers,
     approveRejectedPlayer,
@@ -67,6 +68,11 @@ router.get("/players/pending",getPendingPlayers);
 router.patch(
     "/players/:playerId/approve",
     approvePlayer
+);
+
+router.patch(
+    "/players/:playerId/pending",
+    setPlayerPending
 );
 
 router.get("/player/:id", getPlayerById);
