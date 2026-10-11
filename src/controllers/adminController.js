@@ -1058,11 +1058,11 @@ const approveRejectedPlayer = async (req, res) => {
              RETURNING
                 id,
                 name,
+                email,
+                phone,
                 gender,
                 photo_url,
-                rating,
-                wins,
-                losses`,
+                approval_status`,
             [playerId]
         );
 
@@ -1074,10 +1074,6 @@ const approveRejectedPlayer = async (req, res) => {
         }
 
         const player = result.rows[0];
-        const matchesPlayed = Number(player.wins) + Number(player.losses);
-        const winPercentage = matchesPlayed === 0
-            ? 0
-            : Number(((Number(player.wins) / matchesPlayed) * 100).toFixed(2));
 
         const rankResult = await pool.query(
             `WITH ranked_players AS (
@@ -1103,15 +1099,13 @@ const approveRejectedPlayer = async (req, res) => {
             message: "Rejected player approved successfully",
             player: {
                 rank: Number(rankResult.rows[0].rank),
-                id: String(player.id),
+                id: Number(player.id),
                 name: player.name,
-                gender: player.gender || null,
-                photoUrl: await getPhotoSignedUrl(player.photo_url),
-                rating: Number(player.rating),
-                wins: Number(player.wins),
-                losses: Number(player.losses),
-                matchesPlayed,
-                winPercentage
+                email: player.email,
+                phone: player.phone,
+                gender: player.gender || "",
+                photoUrl: await getPhotoSignedUrl(player.photo_url) || "",
+                approvalStatus: player.approval_status
             }
         });
     } catch (error) {
