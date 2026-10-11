@@ -553,8 +553,43 @@ const createMatch = async (req, res) => {
 
 const getAllMatches = async (req, res) => {
     try {
+        const allowedStatuses = ["SCHEDULED", "LIVE", "COMPLETED", "CANCELLED"];
+        const requestedStatus = req.query.status;
+        let status;
+
+        if (requestedStatus !== undefined) {
+            if (typeof requestedStatus !== "string") {
+                return res.status(400).json({
+                    success: false,
+                    message: `Status must be one of: ${allowedStatuses.join(", ")}`
+                });
+            }
+
+            status = requestedStatus.trim().toUpperCase();
+            if (!allowedStatuses.includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Status must be one of: ${allowedStatuses.join(", ")}`
+                });
+            }
+        }
+
         const result = await pool.query(
-            `SELECT
+            `WITH ranked_players AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            rating DESC,
+                            wins DESC,
+                            losses ASC,
+                            created_at ASC,
+                            id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+             )
+             SELECT
                 m.id,
                 m.status,
                 m.court,
@@ -566,10 +601,12 @@ const getAllMatches = async (req, res) => {
                 p1.id AS player1_id,
                 p1.name AS player1_name,
                 p1.rating AS player1_rating,
+                rp1.rank AS player1_rank,
 
                 p2.id AS player2_id,
                 p2.name AS player2_name,
                 p2.rating AS player2_rating,
+                rp2.rank AS player2_rank,
 
                 r.id AS referee_id,
                 r.name AS referee_name
@@ -582,16 +619,48 @@ const getAllMatches = async (req, res) => {
              JOIN players p2
                 ON m.player2_id = p2.id
 
+             LEFT JOIN ranked_players rp1
+                ON p1.id = rp1.id
+
+             LEFT JOIN ranked_players rp2
+                ON p2.id = rp2.id
+
              LEFT JOIN referees r
                 ON m.referee_id = r.id
 
-             ORDER BY m.scheduled_at DESC`
+             ${status ? "WHERE m.status = $1" : ""}
+             ORDER BY m.scheduled_at DESC`,
+            status ? [status] : []
         );
+
+        const matches = result.rows.map(match => ({
+            id: match.id,
+            status: match.status,
+            court: match.court,
+            scheduled_at: match.scheduled_at,
+            started_at: match.started_at,
+            completed_at: match.completed_at,
+            winner_id: match.winner_id,
+            player1: {
+                id: match.player1_id,
+                name: match.player1_name,
+                rating: match.player1_rating,
+                rank: match.player1_rank
+            },
+            player2: {
+                id: match.player2_id,
+                name: match.player2_name,
+                rating: match.player2_rating,
+                rank: match.player2_rank
+            },
+            referee_id: match.referee_id,
+            referee_name: match.referee_name
+        }));
 
         res.status(200).json({
             success: true,
-            count: result.rows.length,
-            matches: result.rows
+            count: matches.length,
+            matches
         });
 
     } catch (error) {
