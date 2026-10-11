@@ -597,6 +597,7 @@ const getAllMatches = async (req, res) => {
                 m.started_at,
                 m.completed_at,
                 m.winner_id,
+                m.current_set,
 
                 p1.id AS player1_id,
                 p1.name AS player1_name,
@@ -641,6 +642,7 @@ const getAllMatches = async (req, res) => {
             started_at: match.started_at,
             completed_at: match.completed_at,
             winner_id: match.winner_id,
+            currentSet: Number(match.current_set),
             player1: {
                 id: match.player1_id,
                 name: match.player1_name,
