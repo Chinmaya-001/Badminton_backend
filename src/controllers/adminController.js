@@ -598,6 +598,8 @@ const getAllMatches = async (req, res) => {
                 m.completed_at,
                 m.winner_id,
                 m.current_set,
+                m.current_player1_score,
+                m.current_player2_score,
 
                 p1.id AS player1_id,
                 p1.name AS player1_name,
@@ -647,13 +649,15 @@ const getAllMatches = async (req, res) => {
                 id: match.player1_id,
                 name: match.player1_name,
                 rating: match.player1_rating,
-                rank: match.player1_rank
+                rank: match.player1_rank,
+                score: Number(match.current_player1_score)
             },
             player2: {
                 id: match.player2_id,
                 name: match.player2_name,
                 rating: match.player2_rating,
-                rank: match.player2_rank
+                rank: match.player2_rank,
+                score: Number(match.current_player2_score)
             },
             referee_id: match.referee_id,
             referee_name: match.referee_name
