@@ -1,4 +1,5 @@
 const pool = require("../config/database");
+const { getPhotoSignedUrl } = require("../config/supabase");
 
 const {
     calculateRatingChange
@@ -131,20 +132,48 @@ const getMatchById = async (req, res) => {
         const { id } = req.params;
 
         const result = await pool.query(
-            `SELECT
+            `WITH ranked_players AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            rating DESC,
+                            wins DESC,
+                            losses ASC,
+                            created_at ASC,
+                            id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+             )
+             SELECT
                 m.id,
                 m.status,
+                m.court,
+                m.scheduled_at,
                 m.winner_id,
                 m.created_at,
+                m.cancellation_reason,
+                m.started_at,
                 m.completed_at,
+                m.current_set,
+                m.number_of_sets,
 
                 p1.id AS player1_id,
                 p1.name AS player1_name,
                 p1.rating AS player1_rating,
+                p1.photo_url AS player1_photo_url,
+                rp1.rank AS player1_rank,
 
                 p2.id AS player2_id,
                 p2.name AS player2_name,
-                p2.rating AS player2_rating
+                p2.rating AS player2_rating,
+                p2.photo_url AS player2_photo_url,
+                rp2.rank AS player2_rank,
+
+                r.id AS referee_id,
+                r.name AS referee_name,
+                a.name AS created_by_admin_name
 
              FROM matches m
 
@@ -153,6 +182,18 @@ const getMatchById = async (req, res) => {
 
              JOIN players p2
                 ON m.player2_id = p2.id
+
+             LEFT JOIN ranked_players rp1
+                ON p1.id = rp1.id
+
+             LEFT JOIN ranked_players rp2
+                ON p2.id = rp2.id
+
+             LEFT JOIN referees r
+                ON m.referee_id = r.id
+
+             LEFT JOIN admins a
+                ON m.created_by_admin_id = a.id
 
              WHERE m.id = $1`,
             [id]
@@ -165,9 +206,62 @@ const getMatchById = async (req, res) => {
             });
         }
 
+        const player = result.rows[0];
+        const setsResult = await pool.query(
+            `SELECT
+                set_number,
+                player1_score,
+                player2_score
+             FROM match_sets
+             WHERE match_id = $1
+             ORDER BY set_number ASC`,
+            [id]
+        );
+
+        const [player1PhotoUrl, player2PhotoUrl] = await Promise.all([
+            getPhotoSignedUrl(player.player1_photo_url),
+            getPhotoSignedUrl(player.player2_photo_url)
+        ]);
+
         res.status(200).json({
             success: true,
-            match: result.rows[0]
+            match: {
+                id: Number(player.id),
+                status: player.status,
+                court: player.court,
+                scheduledAt: player.scheduled_at,
+                winnerId: player.winner_id === null ? null : Number(player.winner_id),
+                player1: {
+                    id: Number(player.player1_id),
+                    name: player.player1_name,
+                    rank: player.player1_rank === null ? null : Number(player.player1_rank),
+                    rating: Number(player.player1_rating),
+                    photoUrl: player1PhotoUrl
+                },
+                player2: {
+                    id: Number(player.player2_id),
+                    name: player.player2_name,
+                    rank: player.player2_rank === null ? null : Number(player.player2_rank),
+                    rating: Number(player.player2_rating),
+                    photoUrl: player2PhotoUrl
+                },
+                referee: player.referee_id === null ? null : {
+                    id: Number(player.referee_id),
+                    name: player.referee_name
+                },
+                createdAt: player.created_at,
+                cancellationReason: player.cancellation_reason,
+                startedAt: player.started_at,
+                completedAt: player.completed_at,
+                currentSet: Number(player.current_set),
+                numberOfSet: Number(player.number_of_sets),
+                sets: setsResult.rows.map(set => ({
+                    setNo: Number(set.set_number),
+                    player1Score: Number(set.player1_score),
+                    player2Score: Number(set.player2_score)
+                })),
+                createdByAdminName: player.created_by_admin_name
+            }
         });
 
     } catch (error) {
