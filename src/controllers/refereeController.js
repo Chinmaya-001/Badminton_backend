@@ -605,10 +605,29 @@ const getMyMatches = async (req, res) => {
             [refereeId]
         );
 
+        const matches = result.rows.map(match => ({
+            id: match.id,
+            status: match.status,
+            court: match.court,
+            scheduled_at: match.scheduled_at,
+            started_at: match.started_at,
+            completed_at: match.completed_at,
+            player1: {
+                id: match.player1_id,
+                name: match.player1_name,
+                rating: match.player1_rating
+            },
+            player2: {
+                id: match.player2_id,
+                name: match.player2_name,
+                rating: match.player2_rating
+            }
+        }));
+
         res.status(200).json({
             success: true,
-            count: result.rows.length,
-            matches: result.rows
+            count: matches.length,
+            matches
         });
 
     } catch (error) {

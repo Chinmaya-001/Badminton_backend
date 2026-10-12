@@ -43,7 +43,7 @@ router.get("/matches", getAllMatches);
 
 router.get("/matches/:matchId", getMatchDetails);
 
-router.patch("/matches/:matchId",updateMatch);
+router.patch("/matches/:matchId", updateMatch);
 
 router.patch(
     "/matches/:matchId/cancel",
@@ -63,7 +63,7 @@ router.get("/players/all", getAllPlayers);
 
 router.get("/players/search", getPlayerByName);
 
-router.get("/players/pending",getPendingPlayers);
+router.get("/players/pending", getPendingPlayers);
 
 router.patch(
     "/players/:playerId/approve",
@@ -89,9 +89,9 @@ router.patch(
     approveRejectedPlayer
 );
 
-router.get("/referees",getAllReferees);
+router.get("/referees", getAllReferees);
 
-router.post("/referee/add",createReferee);
+router.post("/referee/add", createReferee);
 
 
 module.exports = router;
