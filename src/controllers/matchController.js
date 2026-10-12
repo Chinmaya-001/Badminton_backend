@@ -157,6 +157,8 @@ const getMatchById = async (req, res) => {
                 m.started_at,
                 m.completed_at,
                 m.current_set,
+                m.current_player1_score,
+                m.current_player2_score,
                 m.number_of_sets,
 
                 p1.id AS player1_id,
@@ -236,14 +238,16 @@ const getMatchById = async (req, res) => {
                     name: player.player1_name,
                     rank: player.player1_rank === null ? null : Number(player.player1_rank),
                     rating: Number(player.player1_rating),
-                    photoUrl: player1PhotoUrl
+                    photoUrl: player1PhotoUrl,
+                    score: Number(player.current_player1_score)
                 },
                 player2: {
                     id: Number(player.player2_id),
                     name: player.player2_name,
                     rank: player.player2_rank === null ? null : Number(player.player2_rank),
                     rating: Number(player.player2_rating),
-                    photoUrl: player2PhotoUrl
+                    photoUrl: player2PhotoUrl,
+                    score: Number(player.current_player2_score)
                 },
                 referee: player.referee_id === null ? null : {
                     id: Number(player.referee_id),
