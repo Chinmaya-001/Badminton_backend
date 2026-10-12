@@ -1526,6 +1526,27 @@ const updateDoublesScore = async (req, res) => {
 
 const getMyDoublesMatches = async (req, res) => {
     try {
+        const allowedStatuses = ["SCHEDULED", "LIVE", "COMPLETED", "CANCELLED"];
+        const requestedStatus = req.query.status;
+        let status;
+
+        if (requestedStatus !== undefined) {
+            if (typeof requestedStatus !== "string") {
+                return res.status(400).json({
+                    success: false,
+                    message: `Status must be one of: ${allowedStatuses.join(", ")}`
+                });
+            }
+
+            status = requestedStatus.trim().toUpperCase();
+            if (!allowedStatuses.includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Status must be one of: ${allowedStatuses.join(", ")}`
+                });
+            }
+        }
+
         const refereeId = req.user.id;
 
         const result = await pool.query(
@@ -1592,6 +1613,7 @@ const getMyDoublesMatches = async (req, res) => {
              LEFT JOIN referees r ON dm.referee_id = r.id
 
              WHERE dm.referee_id = $1
+             ${status ? "AND dm.status = $2" : ""}
 
              ORDER BY
                 CASE
@@ -1600,7 +1622,7 @@ const getMyDoublesMatches = async (req, res) => {
                     ELSE 3
                 END,
                 dm.scheduled_at ASC`,
-            [refereeId]
+            status ? [refereeId, status] : [refereeId]
         );
 
         const matches = result.rows.map(row => formatDoublesMatch(row));
@@ -1976,4 +1998,3 @@ module.exports = {
     getUpcomingDoublesMatches,
     getCompletedDoublesMatches
 };
-

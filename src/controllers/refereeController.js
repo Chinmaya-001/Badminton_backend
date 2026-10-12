@@ -563,27 +563,64 @@ const updateScore = async (req, res) => {
 
 const getMyMatches = async (req, res) => {
     try {
+        const allowedStatuses = ["SCHEDULED", "LIVE", "COMPLETED", "CANCELLED"];
+        const requestedStatus = req.query.status;
+        let status;
+
+        if (requestedStatus !== undefined) {
+            if (typeof requestedStatus !== "string") {
+                return res.status(400).json({
+                    success: false,
+                    message: `Status must be one of: ${allowedStatuses.join(", ")}`
+                });
+            }
+
+            status = requestedStatus.trim().toUpperCase();
+            if (!allowedStatuses.includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Status must be one of: ${allowedStatuses.join(", ")}`
+                });
+            }
+        }
 
         await cancelExpiredMatches();
 
         const refereeId = req.user.id;
 
         const result = await pool.query(
-            `SELECT
+            `WITH ranked_players AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            rating DESC,
+                            wins DESC,
+                            losses ASC,
+                            created_at ASC,
+                            id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+             )
+             SELECT
                 m.id,
                 m.status,
                 m.court,
                 m.scheduled_at,
                 m.started_at,
                 m.completed_at,
+                m.current_set,
 
                 p1.id AS player1_id,
                 p1.name AS player1_name,
                 p1.rating AS player1_rating,
+                rp1.rank AS player1_rank,
 
                 p2.id AS player2_id,
                 p2.name AS player2_name,
-                p2.rating AS player2_rating
+                p2.rating AS player2_rating,
+                rp2.rank AS player2_rank
 
              FROM matches m
 
@@ -593,7 +630,14 @@ const getMyMatches = async (req, res) => {
              JOIN players p2
                 ON m.player2_id = p2.id
 
+             LEFT JOIN ranked_players rp1
+                ON p1.id = rp1.id
+
+             LEFT JOIN ranked_players rp2
+                ON p2.id = rp2.id
+
              WHERE m.referee_id = $1
+             ${status ? "AND m.status = $2" : ""}
 
              ORDER BY
                 CASE
@@ -602,7 +646,7 @@ const getMyMatches = async (req, res) => {
                     ELSE 3
                 END,
                 m.scheduled_at ASC`,
-            [refereeId]
+            status ? [refereeId, status] : [refereeId]
         );
 
         const matches = result.rows.map(match => ({
@@ -612,15 +656,18 @@ const getMyMatches = async (req, res) => {
             scheduled_at: match.scheduled_at,
             started_at: match.started_at,
             completed_at: match.completed_at,
+            currentSet: Number(match.current_set),
             player1: {
                 id: match.player1_id,
                 name: match.player1_name,
-                rating: match.player1_rating
+                rating: match.player1_rating,
+                rank: match.player1_rank === null ? null : Number(match.player1_rank)
             },
             player2: {
                 id: match.player2_id,
                 name: match.player2_name,
-                rating: match.player2_rating
+                rating: match.player2_rating,
+                rank: match.player2_rank === null ? null : Number(match.player2_rank)
             }
         }));
 
