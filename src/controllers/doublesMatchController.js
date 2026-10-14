@@ -804,17 +804,17 @@ const submitDoublesMatchResult = async (req, res) => {
             ? team2AvgRating
             : team1AvgRating;
 
-        const winnerRatingChange = calculateRatingChange(
+        const winnerRatingChange = Math.round(calculateRatingChange(
             winnerTeamAvg,
             loserTeamAvg,
             1
-        );
+        ));
 
-        const loserRatingChange = calculateRatingChange(
+        const loserRatingChange = Math.round(calculateRatingChange(
             loserTeamAvg,
             winnerTeamAvg,
             0
-        );
+        ));
 
         for (let i = 0; i < sets.length; i++) {
             await client.query(
@@ -1424,8 +1424,12 @@ const updateDoublesScore = async (req, res) => {
             const winnerTeamAvg = winningTeam === 1 ? team1AvgRating : team2AvgRating;
             const loserTeamAvg = winningTeam === 1 ? team2AvgRating : team1AvgRating;
 
-            const winnerRatingChange = calculateRatingChange(winnerTeamAvg, loserTeamAvg, 1);
-            const loserRatingChange = calculateRatingChange(loserTeamAvg, winnerTeamAvg, 0);
+            const winnerRatingChange = Math.round(
+                calculateRatingChange(winnerTeamAvg, loserTeamAvg, 1)
+            );
+            const loserRatingChange = Math.round(
+                calculateRatingChange(loserTeamAvg, winnerTeamAvg, 0)
+            );
 
             for (const winner of winners) {
                 const newRating = Number(winner.rating) + winnerRatingChange;
