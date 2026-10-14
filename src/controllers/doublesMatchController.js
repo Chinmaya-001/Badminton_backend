@@ -1,4 +1,5 @@
 const pool = require("../config/database");
+const { getPhotoSignedUrl } = require("../config/supabase");
 
 const {
     calculateRatingChange
@@ -282,6 +283,7 @@ const getDoublesMatchById = async (req, res) => {
                     id,
                     name,
                     rating,
+                    photo_url,
                     ROW_NUMBER() OVER (
                         ORDER BY
                             rating DESC,
@@ -310,21 +312,25 @@ const getDoublesMatchById = async (req, res) => {
                 t1p1.id AS team1_player1_id,
                 t1p1.name AS team1_player1_name,
                 t1p1.rating AS team1_player1_rating,
+                t1p1.photo_url AS team1_player1_photo_url,
                 t1p1.rank AS team1_player1_rank,
 
                 t1p2.id AS team1_player2_id,
                 t1p2.name AS team1_player2_name,
                 t1p2.rating AS team1_player2_rating,
+                t1p2.photo_url AS team1_player2_photo_url,
                 t1p2.rank AS team1_player2_rank,
 
                 t2p1.id AS team2_player1_id,
                 t2p1.name AS team2_player1_name,
                 t2p1.rating AS team2_player1_rating,
+                t2p1.photo_url AS team2_player1_photo_url,
                 t2p1.rank AS team2_player1_rank,
 
                 t2p2.id AS team2_player2_id,
                 t2p2.name AS team2_player2_name,
                 t2p2.rating AS team2_player2_rating,
+                t2p2.photo_url AS team2_player2_photo_url,
                 t2p2.rank AS team2_player2_rank,
 
                 r.id AS referee_id,
@@ -369,9 +375,27 @@ const getDoublesMatchById = async (req, res) => {
             team2Score: Number(s.team2_score)
         }));
 
+        const [
+            team1Player1PhotoUrl,
+            team1Player2PhotoUrl,
+            team2Player1PhotoUrl,
+            team2Player2PhotoUrl
+        ] = await Promise.all([
+            getPhotoSignedUrl(matchRow.team1_player1_photo_url),
+            getPhotoSignedUrl(matchRow.team1_player2_photo_url),
+            getPhotoSignedUrl(matchRow.team2_player1_photo_url),
+            getPhotoSignedUrl(matchRow.team2_player2_photo_url)
+        ]);
+
+        const match = formatDoublesMatch(matchRow, sets);
+        match.team1.player1.photoUrl = team1Player1PhotoUrl;
+        match.team1.player2.photoUrl = team1Player2PhotoUrl;
+        match.team2.player1.photoUrl = team2Player1PhotoUrl;
+        match.team2.player2.photoUrl = team2Player2PhotoUrl;
+
         res.status(200).json({
             success: true,
-            match: formatDoublesMatch(matchRow, sets)
+            match
         });
 
     } catch (error) {
@@ -1555,6 +1579,7 @@ const getMyDoublesMatches = async (req, res) => {
                     id,
                     name,
                     rating,
+                    photo_url,
                     ROW_NUMBER() OVER (
                         ORDER BY
                             rating DESC,
@@ -1583,21 +1608,25 @@ const getMyDoublesMatches = async (req, res) => {
                 t1p1.id AS team1_player1_id,
                 t1p1.name AS team1_player1_name,
                 t1p1.rating AS team1_player1_rating,
+                t1p1.photo_url AS team1_player1_photo_url,
                 t1p1.rank AS team1_player1_rank,
 
                 t1p2.id AS team1_player2_id,
                 t1p2.name AS team1_player2_name,
                 t1p2.rating AS team1_player2_rating,
+                t1p2.photo_url AS team1_player2_photo_url,
                 t1p2.rank AS team1_player2_rank,
 
                 t2p1.id AS team2_player1_id,
                 t2p1.name AS team2_player1_name,
                 t2p1.rating AS team2_player1_rating,
+                t2p1.photo_url AS team2_player1_photo_url,
                 t2p1.rank AS team2_player1_rank,
 
                 t2p2.id AS team2_player2_id,
                 t2p2.name AS team2_player2_name,
                 t2p2.rating AS team2_player2_rating,
+                t2p2.photo_url AS team2_player2_photo_url,
                 t2p2.rank AS team2_player2_rank,
 
                 r.id AS referee_id,
@@ -1625,7 +1654,27 @@ const getMyDoublesMatches = async (req, res) => {
             status ? [refereeId, status] : [refereeId]
         );
 
-        const matches = result.rows.map(row => formatDoublesMatch(row));
+        const matches = await Promise.all(result.rows.map(async row => {
+            const [
+                team1Player1PhotoUrl,
+                team1Player2PhotoUrl,
+                team2Player1PhotoUrl,
+                team2Player2PhotoUrl
+            ] = await Promise.all([
+                getPhotoSignedUrl(row.team1_player1_photo_url),
+                getPhotoSignedUrl(row.team1_player2_photo_url),
+                getPhotoSignedUrl(row.team2_player1_photo_url),
+                getPhotoSignedUrl(row.team2_player2_photo_url)
+            ]);
+
+            const match = formatDoublesMatch(row);
+            match.team1.player1.photoUrl = team1Player1PhotoUrl;
+            match.team1.player2.photoUrl = team1Player2PhotoUrl;
+            match.team2.player1.photoUrl = team2Player1PhotoUrl;
+            match.team2.player2.photoUrl = team2Player2PhotoUrl;
+
+            return match;
+        }));
 
         res.status(200).json({
             success: true,
