@@ -8,7 +8,8 @@ const {
     getMyMatches,
     getMyMatchDetails,
     getMyUpcomingMatches,
-    getMyRatingHistory
+    getMyRatingHistory,
+    getPlayerRatingHistory
 } = require("../controllers/playerController");
 
 const {
@@ -42,11 +43,12 @@ router.patch(
 );
 
 router.get("/me", getMyProfile);
-router.get("/me/dashboard", getMyDashboard);
+// router.get("/me/dashboard", getMyDashboard);
 router.get("/me/matches", getMyMatches);
 router.get("/me/upcoming-matches", getMyUpcomingMatches);
 router.get("/me/matches/:matchId", getMyMatchDetails);
 router.get("/me/rating-history", getMyRatingHistory);
+router.get("/rating-history/:id", getPlayerRatingHistory);
 router.get("/:id", getPlayerById);
 router.get("/:id/rank", getPlayerRank);
 

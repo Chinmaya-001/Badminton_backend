@@ -988,6 +988,167 @@ const getMyRatingHistory = async (req, res) => {
     }
 };
 
+const getPlayerRatingHistory = async (req, res) => {
+    try {
+        const playerId = Number(req.params.id);
+
+        if (!Number.isInteger(playerId) || playerId <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid player ID"
+            });
+        }
+
+        const playerResult = await pool.query(
+            `SELECT id
+             FROM players
+             WHERE id = $1`,
+            [playerId]
+        );
+
+        if (playerResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Player not found"
+            });
+        }
+
+        const result = await pool.query(
+            `WITH recent_history AS (
+                SELECT
+                    id,
+                    match_id,
+                    doubles_match_id,
+                    player_id,
+                    old_rating,
+                    new_rating,
+                    rating_change,
+                    created_at
+                FROM rating_history
+                WHERE player_id = $1
+                ORDER BY created_at DESC, id DESC
+                LIMIT 30
+            )
+            SELECT
+                rh.id,
+                rh.match_id,
+                rh.doubles_match_id,
+                rh.old_rating,
+                rh.new_rating,
+                rh.rating_change,
+                rh.created_at,
+
+                m.player1_id AS singles_player1_id,
+                singles_p1.name AS singles_player1_name,
+                m.player2_id AS singles_player2_id,
+                singles_p2.name AS singles_player2_name,
+
+                dm.team1_player1_id,
+                doubles_t1p1.name AS team1_player1_name,
+                dm.team1_player2_id,
+                doubles_t1p2.name AS team1_player2_name,
+                dm.team2_player1_id,
+                doubles_t2p1.name AS team2_player1_name,
+                dm.team2_player2_id,
+                doubles_t2p2.name AS team2_player2_name
+
+            FROM recent_history rh
+            LEFT JOIN matches m
+                ON rh.match_id = m.id
+            LEFT JOIN players singles_p1
+                ON m.player1_id = singles_p1.id
+            LEFT JOIN players singles_p2
+                ON m.player2_id = singles_p2.id
+            LEFT JOIN doubles_matches dm
+                ON rh.doubles_match_id = dm.id
+            LEFT JOIN players doubles_t1p1
+                ON dm.team1_player1_id = doubles_t1p1.id
+            LEFT JOIN players doubles_t1p2
+                ON dm.team1_player2_id = doubles_t1p2.id
+            LEFT JOIN players doubles_t2p1
+                ON dm.team2_player1_id = doubles_t2p1.id
+            LEFT JOIN players doubles_t2p2
+                ON dm.team2_player2_id = doubles_t2p2.id
+
+            ORDER BY rh.created_at ASC, rh.id ASC`,
+            [playerId]
+        );
+
+        const history = result.rows.map(item => {
+            let opponents = [];
+            let matchType = "UNKNOWN";
+
+            if (item.doubles_match_id !== null) {
+                matchType = "DOUBLES";
+                const onTeam1 = [
+                    Number(item.team1_player1_id),
+                    Number(item.team1_player2_id)
+                ].includes(playerId);
+
+                opponents = onTeam1
+                    ? [
+                        {
+                            id: Number(item.team2_player1_id),
+                            name: item.team2_player1_name
+                        },
+                        {
+                            id: Number(item.team2_player2_id),
+                            name: item.team2_player2_name
+                        }
+                    ]
+                    : [
+                        {
+                            id: Number(item.team1_player1_id),
+                            name: item.team1_player1_name
+                        },
+                        {
+                            id: Number(item.team1_player2_id),
+                            name: item.team1_player2_name
+                        }
+                    ];
+            } else if (item.match_id !== null) {
+                matchType = "SINGLES";
+                const isPlayer1 = Number(item.singles_player1_id) === playerId;
+                opponents = [{
+                    id: Number(isPlayer1
+                        ? item.singles_player2_id
+                        : item.singles_player1_id),
+                    name: isPlayer1
+                        ? item.singles_player2_name
+                        : item.singles_player1_name
+                }];
+            }
+
+            return {
+                id: Number(item.id),
+                matchType,
+                matchId: item.match_id === null ? null : Number(item.match_id),
+                doublesMatchId: item.doubles_match_id === null
+                    ? null
+                    : Number(item.doubles_match_id),
+                opponents,
+                oldRating: Number(item.old_rating),
+                newRating: Number(item.new_rating),
+                change: Number(item.rating_change),
+                date: item.created_at
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            count: history.length,
+            history
+        });
+    } catch (error) {
+        console.error("Get player rating history error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to get player rating history"
+        });
+    }
+};
+
 const getPlayerRank = async (req, res) => {
     try {
         const id = req.params.id || req.params.playerId;
@@ -1048,5 +1209,6 @@ module.exports = {
     getMyMatches,
     getMyMatchDetails,
     getMyUpcomingMatches,
-    getMyRatingHistory
+    getMyRatingHistory,
+    getPlayerRatingHistory
 };
