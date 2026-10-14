@@ -1219,9 +1219,11 @@ const startDoublesMatch = async (req, res) => {
 // ================================================
 
 const updateDoublesScore = async (req, res) => {
-    const client = await pool.connect();
+    let client;
 
     try {
+        client = await pool.connect();
+
         const { matchId } = req.params;
         const refereeId = req.user.id;
         const { winner } = req.body;
@@ -1529,7 +1531,13 @@ const updateDoublesScore = async (req, res) => {
         });
 
     } catch (error) {
-        await client.query("ROLLBACK");
+        if (client) {
+            try {
+                await client.query("ROLLBACK");
+            } catch (rollbackError) {
+                console.error("Rollback live score update error:", rollbackError);
+            }
+        }
 
         console.error("Update live score error:", error);
 
@@ -1539,7 +1547,9 @@ const updateDoublesScore = async (req, res) => {
         });
 
     } finally {
-        client.release();
+        if (client) {
+            client.release();
+        }
     }
 };
 
