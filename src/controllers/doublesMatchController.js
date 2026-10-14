@@ -853,14 +853,16 @@ const submitDoublesMatchResult = async (req, res) => {
                     (
                         player_id,
                         match_id,
+                        doubles_match_id,
                         old_rating,
                         new_rating,
                         rating_change
                     )
-                 VALUES ($1, $2, $3, $4, $5)`,
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
                 [
                     winner.id,
                     null,
+                    matchId,
                     winner.rating,
                     newRating,
                     winnerRatingChange
@@ -894,14 +896,16 @@ const submitDoublesMatchResult = async (req, res) => {
                     (
                         player_id,
                         match_id,
+                        doubles_match_id,
                         old_rating,
                         new_rating,
                         rating_change
                     )
-                 VALUES ($1, $2, $3, $4, $5)`,
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
                 [
                     loser.id,
                     null,
+                    matchId,
                     loser.rating,
                     newRating,
                     loserRatingChange
@@ -1437,9 +1441,16 @@ const updateDoublesScore = async (req, res) => {
 
                 await client.query(
                     `INSERT INTO rating_history
-                        (player_id, match_id, old_rating, new_rating, rating_change)
-                     VALUES ($1, $2, $3, $4, $5)`,
-                    [winner.id, null, winner.rating, newRating, winnerRatingChange]
+                        (
+                            player_id,
+                            match_id,
+                            doubles_match_id,
+                            old_rating,
+                            new_rating,
+                            rating_change
+                        )
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [winner.id, null, matchId, winner.rating, newRating, winnerRatingChange]
                 );
             }
 
@@ -1457,9 +1468,16 @@ const updateDoublesScore = async (req, res) => {
 
                 await client.query(
                     `INSERT INTO rating_history
-                        (player_id, match_id, old_rating, new_rating, rating_change)
-                     VALUES ($1, $2, $3, $4, $5)`,
-                    [loser.id, null, loser.rating, newRating, loserRatingChange]
+                        (
+                            player_id,
+                            match_id,
+                            doubles_match_id,
+                            old_rating,
+                            new_rating,
+                            rating_change
+                        )
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [loser.id, null, matchId, loser.rating, newRating, loserRatingChange]
                 );
             }
 
