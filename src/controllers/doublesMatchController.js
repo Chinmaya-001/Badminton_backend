@@ -514,6 +514,7 @@ const getPlayerDoublesMatches = async (req, res) => {
                     id,
                     name,
                     rating,
+                    photo_url,
                     ROW_NUMBER() OVER (
                         ORDER BY
                             rating DESC,
@@ -542,21 +543,25 @@ const getPlayerDoublesMatches = async (req, res) => {
                 t1p1.id AS team1_player1_id,
                 t1p1.name AS team1_player1_name,
                 t1p1.rating AS team1_player1_rating,
+                t1p1.photo_url AS team1_player1_photo_url,
                 t1p1.rank AS team1_player1_rank,
 
                 t1p2.id AS team1_player2_id,
                 t1p2.name AS team1_player2_name,
                 t1p2.rating AS team1_player2_rating,
+                t1p2.photo_url AS team1_player2_photo_url,
                 t1p2.rank AS team1_player2_rank,
 
                 t2p1.id AS team2_player1_id,
                 t2p1.name AS team2_player1_name,
                 t2p1.rating AS team2_player1_rating,
+                t2p1.photo_url AS team2_player1_photo_url,
                 t2p1.rank AS team2_player1_rank,
 
                 t2p2.id AS team2_player2_id,
                 t2p2.name AS team2_player2_name,
                 t2p2.rating AS team2_player2_rating,
+                t2p2.photo_url AS team2_player2_photo_url,
                 t2p2.rank AS team2_player2_rank,
 
                 r.id AS referee_id,
@@ -580,7 +585,57 @@ const getPlayerDoublesMatches = async (req, res) => {
             [playerId]
         );
 
-        const matches = result.rows.map(row => formatDoublesMatch(row));
+        const matchIds = result.rows.map(row => Number(row.id));
+        const setsResult = await pool.query(
+            `SELECT
+                doubles_match_id,
+                set_number,
+                team1_score,
+                team2_score
+             FROM doubles_match_sets
+             WHERE doubles_match_id = ANY($1)
+             ORDER BY doubles_match_id ASC, set_number ASC`,
+            [matchIds]
+        );
+
+        const setsByMatchId = new Map();
+        for (const set of setsResult.rows) {
+            const matchId = Number(set.doubles_match_id);
+            if (!setsByMatchId.has(matchId)) {
+                setsByMatchId.set(matchId, []);
+            }
+            setsByMatchId.get(matchId).push({
+                setNumber: Number(set.set_number),
+                team1Score: Number(set.team1_score),
+                team2Score: Number(set.team2_score)
+            });
+        }
+
+        const matches = await Promise.all(result.rows.map(async row => {
+            const match = formatDoublesMatch(
+                row,
+                setsByMatchId.get(Number(row.id)) || []
+            );
+
+            const [
+                team1Player1PhotoUrl,
+                team1Player2PhotoUrl,
+                team2Player1PhotoUrl,
+                team2Player2PhotoUrl
+            ] = await Promise.all([
+                getPhotoSignedUrl(row.team1_player1_photo_url),
+                getPhotoSignedUrl(row.team1_player2_photo_url),
+                getPhotoSignedUrl(row.team2_player1_photo_url),
+                getPhotoSignedUrl(row.team2_player2_photo_url)
+            ]);
+
+            match.team1.player1.photoUrl = team1Player1PhotoUrl;
+            match.team1.player2.photoUrl = team1Player2PhotoUrl;
+            match.team2.player1.photoUrl = team2Player1PhotoUrl;
+            match.team2.player2.photoUrl = team2Player2PhotoUrl;
+
+            return match;
+        }));
 
         res.status(200).json({
             success: true,
