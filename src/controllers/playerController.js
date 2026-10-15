@@ -611,71 +611,115 @@ const getMyUpcomingMatches = async (req, res) => {
         // );
 
         const result = await pool.query(
-            `SELECT
-        m.id,
-        m.status,
-        m.court,
-        m.scheduled_at,
+            `WITH ranked_players AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            rating DESC,
+                            wins DESC,
+                            losses ASC,
+                            created_at ASC,
+                            id ASC
+                    ) AS rank
+                FROM players
+                WHERE approval_status = 'APPROVED'
+            )
+            SELECT
+                m.id,
+                m.status,
+                m.court,
+                m.scheduled_at,
 
-        p1.id AS player1_id,
-        p1.name AS player1_name,
+                p1.id AS player1_id,
+                p1.name AS player1_name,
+                p1.rating AS player1_rating,
+                p1.photo_url AS player1_photo_url,
+                rp1.rank AS player1_rank,
 
-        p2.id AS player2_id,
-        p2.name AS player2_name,
+                p2.id AS player2_id,
+                p2.name AS player2_name,
+                p2.rating AS player2_rating,
+                p2.photo_url AS player2_photo_url,
+                rp2.rank AS player2_rank,
 
-        r.id AS referee_id,
-        r.name AS referee_name
+                r.id AS referee_id,
+                r.name AS referee_name
 
-     FROM matches m
+            FROM matches m
 
-     JOIN players p1
-        ON m.player1_id = p1.id
+            JOIN players p1
+                ON m.player1_id = p1.id
 
-     JOIN players p2
-        ON m.player2_id = p2.id
+            JOIN players p2
+                ON m.player2_id = p2.id
 
-     LEFT JOIN referees r
-        ON m.referee_id = r.id
+            LEFT JOIN ranked_players rp1
+                ON p1.id = rp1.id
 
-     WHERE
-        (
-            m.player1_id = $1
-            OR m.player2_id = $1
-        )
+            LEFT JOIN ranked_players rp2
+                ON p2.id = rp2.id
 
-        AND m.status = 'SCHEDULED'
+            LEFT JOIN referees r
+                ON m.referee_id = r.id
 
-        AND m.scheduled_at > CURRENT_TIMESTAMP
+            WHERE
+                (
+                    m.player1_id = $1
+                    OR m.player2_id = $1
+                )
 
-     ORDER BY
-        m.scheduled_at ASC`,
+                AND m.status = 'SCHEDULED'
+
+                AND m.scheduled_at > CURRENT_TIMESTAMP
+
+            ORDER BY
+                m.scheduled_at ASC`,
             [playerId]
         );
 
-        const matches = result.rows.map(match => ({
-            id: match.id,
-            status: match.status,
-            court: match.court,
-            scheduledAt: match.scheduled_at,
-
-            opponent:
-                Number(match.player1_id) ===
-                    Number(playerId)
-                    ? {
-                        id: match.player2_id,
-                        name: match.player2_name
-                    }
-                    : {
-                        id: match.player1_id,
-                        name: match.player1_name
-                    },
-
-            referee: match.referee_id
+        const matches = await Promise.all(result.rows.map(async match => {
+            const isPlayer1 =
+                Number(match.player1_id) === Number(playerId);
+            const opponent = isPlayer1
                 ? {
-                    id: match.referee_id,
-                    name: match.referee_name
+                    id: match.player2_id,
+                    name: match.player2_name,
+                    rating: match.player2_rating,
+                    rank: match.player2_rank,
+                    photoUrl: match.player2_photo_url
                 }
-                : null
+                : {
+                    id: match.player1_id,
+                    name: match.player1_name,
+                    rating: match.player1_rating,
+                    rank: match.player1_rank,
+                    photoUrl: match.player1_photo_url
+                };
+
+            return {
+                id: match.id,
+                status: match.status,
+                court: match.court,
+                scheduledAt: match.scheduled_at,
+
+                opponent: {
+                    id: opponent.id,
+                    name: opponent.name,
+                    rating: Number(opponent.rating),
+                    rank: opponent.rank === null
+                        ? null
+                        : Number(opponent.rank),
+                    photoUrl: await getPhotoSignedUrl(opponent.photoUrl)
+                },
+
+                referee: match.referee_id
+                    ? {
+                        id: match.referee_id,
+                        name: match.referee_name
+                    }
+                    : null
+            };
         }));
 
         res.status(200).json({
