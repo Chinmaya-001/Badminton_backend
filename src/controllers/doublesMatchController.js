@@ -507,6 +507,26 @@ const getAllDoublesMatches = async (req, res) => {
 const getPlayerDoublesMatches = async (req, res) => {
     try {
         const { playerId } = req.params;
+        const allowedStatuses = ["SCHEDULED", "LIVE", "COMPLETED", "CANCELLED"];
+        const requestedStatus = req.query.status;
+        let status;
+
+        if (requestedStatus !== undefined) {
+            if (typeof requestedStatus !== "string") {
+                return res.status(400).json({
+                    success: false,
+                    message: `Status must be one of: ${allowedStatuses.join(", ")}`
+                });
+            }
+
+            status = requestedStatus.trim().toUpperCase();
+            if (!allowedStatuses.includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Status must be one of: ${allowedStatuses.join(", ")}`
+                });
+            }
+        }
 
         const result = await pool.query(
             `WITH ranked_players AS (
@@ -576,13 +596,14 @@ const getPlayerDoublesMatches = async (req, res) => {
 
              LEFT JOIN referees r ON dm.referee_id = r.id
 
-             WHERE dm.team1_player1_id = $1
+             WHERE (dm.team1_player1_id = $1
                 OR dm.team1_player2_id = $1
                 OR dm.team2_player1_id = $1
-                OR dm.team2_player2_id = $1
+                OR dm.team2_player2_id = $1)
+             ${status ? "AND dm.status = $2" : ""}
 
              ORDER BY dm.created_at DESC`,
-            [playerId]
+            status ? [playerId, status] : [playerId]
         );
 
         const matchIds = result.rows.map(row => Number(row.id));
