@@ -1374,7 +1374,8 @@ const getPlayerByName = async (req, res) => {
                 rp.rank
             FROM players p
             LEFT JOIN ranked_players rp ON rp.id = p.id
-            WHERE p.name ILIKE $1
+            WHERE p.approval_status = 'APPROVED'
+              AND p.name ILIKE $1
             ORDER BY p.name ASC, p.created_at DESC`,
             [`%${name}%`]
         );
