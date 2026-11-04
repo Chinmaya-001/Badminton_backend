@@ -3,7 +3,7 @@ const pool = require("../config/database");
 const cancelExpiredMatches = async () => {
     try {
 
-        const result = await pool.query(
+        const singlesResult = await pool.query(
             `UPDATE matches
              SET
                 status = 'CANCELLED',
@@ -15,13 +15,26 @@ const cancelExpiredMatches = async () => {
              RETURNING id`
         );
 
-        if (result.rows.length > 0) {
+        const doublesResult = await pool.query(
+            `UPDATE doubles_matches
+             SET status = 'CANCELLED'
+             WHERE
+                status = 'SCHEDULED'
+                AND scheduled_at <
+                    CURRENT_TIMESTAMP - INTERVAL '15 minutes'
+             RETURNING id`
+        );
+
+        const cancelledCount =
+            singlesResult.rows.length + doublesResult.rows.length;
+
+        if (cancelledCount > 0) {
             console.log(
-                `Automatically cancelled ${result.rows.length} expired match(es)`
+                `Automatically cancelled ${cancelledCount} expired match(es)`
             );
         }
 
-        return result.rows;
+        return [...singlesResult.rows, ...doublesResult.rows];
 
     } catch (error) {
 

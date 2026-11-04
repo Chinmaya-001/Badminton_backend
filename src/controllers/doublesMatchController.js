@@ -1,5 +1,6 @@
 const pool = require("../config/database");
 const { getPhotoSignedUrl } = require("../config/supabase");
+const { cancelExpiredMatches } = require("../utils/matchStatus");
 
 const {
     calculateRatingChange
@@ -527,6 +528,8 @@ const getPlayerDoublesMatches = async (req, res) => {
                 });
             }
         }
+
+        await cancelExpiredMatches();
 
         const result = await pool.query(
             `WITH ranked_players AS (
