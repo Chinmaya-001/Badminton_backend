@@ -9,6 +9,48 @@ const {
     cancelExpiredMatches
 } = require("../utils/matchStatus");
 
+const getAdminProfile = async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT
+                id,
+                name,
+                email,
+                is_active
+             FROM admins
+             WHERE id = $1`,
+            [req.user.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Admin not found"
+            });
+        }
+
+        const admin = result.rows[0];
+
+        return res.status(200).json({
+            success: true,
+            admin: {
+                id: admin.id,
+                name: admin.name,
+                email: admin.email,
+                role: "ADMIN",
+                isActive: admin.is_active
+            }
+        });
+    } catch (error) {
+        console.error("Get admin profile error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to get admin profile"
+        });
+    }
+};
+
 const getAdminDashboard = async (req, res) => {
     try {
 
@@ -1540,6 +1582,7 @@ const createReferee = async (req, res) => {
 };
 
 module.exports = {
+    getAdminProfile,
     getAdminDashboard,
     createMatch,
     getAllMatches,

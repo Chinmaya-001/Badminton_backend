@@ -1,6 +1,7 @@
 const express = require("express");
 
 const {
+    getAdminProfile,
     getAdminDashboard,
     createMatch,
     getAllMatches,
@@ -36,6 +37,8 @@ const router = express.Router();
 router.use(authenticate);
 router.use(requireAdmin);
 
+router.get("/me", getAdminProfile);
+
 router.get("/dashboard", getAdminDashboard);
 
 router.post("/matches", createMatch);
@@ -48,7 +51,7 @@ router.patch("/matches/:matchId", updateMatch);
 
 router.patch("/matches/:matchId/cancel",cancelMatch);
 
-router.patch("/me/profile",updateProfile);
+router.patch("/me/update",updateProfile);
 
 router.patch("/me/password",updatePassword);
 
