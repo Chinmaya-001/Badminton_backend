@@ -8,6 +8,7 @@ const {
     cancelMatch,
     updateMatch,
     getAllReferees,
+    getRefereeByName,
     getAllPlayers,
     getPlayerByName,
     getPendingPlayers,
@@ -68,6 +69,8 @@ router.patch("/players/:playerId/reject",rejectPlayer);
 router.get("/players/rejected", getRejectedPlayers);
 
 router.patch("/players/:playerId/approve-rejected",approveRejectedPlayer);
+
+router.get("/referees/search", getRefereeByName);
 
 router.get("/referees", getAllReferees);
 

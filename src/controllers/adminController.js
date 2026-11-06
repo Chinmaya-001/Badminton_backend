@@ -780,6 +780,48 @@ const getAllReferees = async (req, res) => {
     }
 };
 
+const getRefereeByName = async (req, res) => {
+    try {
+        const name = typeof req.query.name === "string"
+            ? req.query.name.trim()
+            : "";
+
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                message: "name query parameter is required"
+            });
+        }
+
+        const result = await pool.query(
+            `SELECT
+                id,
+                name,
+                email,
+                phone,
+                is_active,
+                created_at
+             FROM referees
+             WHERE name ILIKE $1
+             ORDER BY name ASC, created_at DESC`,
+            [`%${name}%`]
+        );
+
+        return res.status(200).json({
+            success: true,
+            count: result.rows.length,
+            referees: result.rows
+        });
+    } catch (error) {
+        console.error("Get referee by name error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to get referee by name"
+        });
+    }
+};
+
 const getMatchDetails = async (req, res) => {
     try {
         const { matchId } = req.params;
@@ -1511,5 +1553,6 @@ module.exports = {
     getRejectedPlayers,
     approveRejectedPlayer,
     getAllReferees,
+    getRefereeByName,
     createReferee
 };
