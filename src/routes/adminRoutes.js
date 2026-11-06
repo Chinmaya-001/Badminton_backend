@@ -45,19 +45,11 @@ router.get("/matches/:matchId", getMatchDetails);
 
 router.patch("/matches/:matchId", updateMatch);
 
-router.patch(
-    "/matches/:matchId/cancel",
-    cancelMatch
-);
-router.patch(
-    "/me/profile",
-    updateProfile
-);
+router.patch("/matches/:matchId/cancel",cancelMatch);
 
-router.patch(
-    "/me/password",
-    updatePassword
-);
+router.patch("/me/profile",updateProfile);
+
+router.patch("/me/password",updatePassword);
 
 router.get("/players/all", getAllPlayers);
 
@@ -65,29 +57,17 @@ router.get("/players/search", getPlayerByName);
 
 router.get("/players/pending", getPendingPlayers);
 
-router.patch(
-    "/players/:playerId/approve",
-    approvePlayer
-);
+router.patch("/players/:playerId/approve",approvePlayer);
 
-router.patch(
-    "/players/:playerId/pending",
-    setPlayerPending
-);
+router.patch("/players/:playerId/pending",setPlayerPending);
 
 router.get("/player/:id", getPlayerById);
 
-router.patch(
-    "/players/:playerId/reject",
-    rejectPlayer
-);
+router.patch("/players/:playerId/reject",rejectPlayer);
 
 router.get("/players/rejected", getRejectedPlayers);
 
-router.patch(
-    "/players/:playerId/approve-rejected",
-    approveRejectedPlayer
-);
+router.patch("/players/:playerId/approve-rejected",approveRejectedPlayer);
 
 router.get("/referees", getAllReferees);
 
