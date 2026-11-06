@@ -758,6 +758,8 @@ const getAllReferees = async (req, res) => {
             `SELECT
                 id,
                 name,
+                email,
+                phone,
                 is_active,
                 created_at
              FROM referees
