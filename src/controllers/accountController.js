@@ -396,8 +396,113 @@ const updatePassword = async (req, res) => {
     }
 };
 
+// --------------------------------------------------
+// DELETE PLAYER ACCOUNT
+// --------------------------------------------------
+
+const deleteMyPlayer = async (req, res) => {
+    let client;
+    let transactionStarted = false;
+    let photoPath = null;
+
+    try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+        transactionStarted = true;
+
+        const playerResult = await client.query(
+            `SELECT photo_url
+             FROM players
+             WHERE id = $1
+             FOR UPDATE`,
+            [req.user.id]
+        );
+
+        if (playerResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+            transactionStarted = false;
+            return res.status(404).json({
+                success: false,
+                message: "Player not found"
+            });
+        }
+
+        photoPath = playerResult.rows[0].photo_url;
+
+        const matchesResult = await client.query(
+            `SELECT id
+             FROM matches
+             WHERE player1_id = $1 OR player2_id = $1`,
+            [req.user.id]
+        );
+        const matchIds = matchesResult.rows.map(match => match.id);
+
+        await client.query(
+            `UPDATE rating_history
+             SET match_id = NULL
+             WHERE match_id = ANY($1::int[]) AND player_id <> $2`,
+            [matchIds, req.user.id]
+        );
+
+        await client.query(
+            `DELETE FROM rating_history
+             WHERE player_id = $1`,
+            [req.user.id]
+        );
+
+        await client.query(
+            `DELETE FROM doubles_matches
+             WHERE team1_player1_id = $1
+                OR team1_player2_id = $1
+                OR team2_player1_id = $1
+                OR team2_player2_id = $1`,
+            [req.user.id]
+        );
+
+        await client.query(
+            `DELETE FROM matches
+             WHERE player1_id = $1 OR player2_id = $1`,
+            [req.user.id]
+        );
+
+        await client.query(
+            `DELETE FROM players
+             WHERE id = $1`,
+            [req.user.id]
+        );
+
+        await client.query("COMMIT");
+        transactionStarted = false;
+        await deletePlayerPhoto(photoPath);
+
+        return res.status(200).json({
+            success: true,
+            message: "Player account and related data deleted successfully"
+        });
+    } catch (error) {
+        if (client && transactionStarted) {
+            try {
+                await client.query("ROLLBACK");
+            } catch (rollbackError) {
+                console.error("Rollback player deletion failed:", rollbackError);
+            }
+        }
+        console.error("Delete player account error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to delete player account"
+        });
+    } finally {
+        if (client) {
+            client.release();
+        }
+    }
+};
+
 
 module.exports = {
     updateProfile,
-    updatePassword
+    updatePassword,
+    deleteMyPlayer
 };

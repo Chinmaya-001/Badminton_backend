@@ -19,7 +19,8 @@ const {
 
 const {
     updateProfile,
-    updatePassword
+    updatePassword,
+    deleteMyPlayer
 } = require("../controllers/accountController");
 
 const {
@@ -31,19 +32,10 @@ const router = express.Router();
 router.use(authenticate);
 router.use(requirePlayer)
 
-router.patch(
-    "/me/profile",
-    handlePhotoUpload,
-    updateProfile
-);
-
-router.patch(
-    "/me/password",
-    updatePassword
-);
-
+router.patch("/me/profile",handlePhotoUpload,updateProfile);
+router.patch("/me/password",updatePassword);
+router.delete("/me",deleteMyPlayer);
 router.get("/me", getMyProfile);
-// router.get("/me/dashboard", getMyDashboard);
 router.get("/me/matches", getMyMatches);
 router.get("/me/upcoming-matches", getMyUpcomingMatches);
 router.get("/me/matches/:matchId", getMyMatchDetails);
